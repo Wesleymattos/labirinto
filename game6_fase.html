@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Labirinto com Níveis</title>
+  <style>
+    body {
+      background: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: white;
+      font-family: Arial;
+    }
+    #container {
+      position: relative;
+      width: 500px;
+      height: 700px;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #mazeCanvas {
+      z-index: 1;
+    }
+    #trailCanvas {
+      z-index: 2;
+      pointer-events: none;
+    }
+    #hud {
+      margin-top: 10px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <canvas id="mazeCanvas" width="500" height="700"></canvas>
+    <canvas id="trailCanvas" width="500" height="700"></canvas>
+  </div>
+  <div id="hud">Nível: <span id="level">1</span> | Tempo: <span id="timer">0</span>s</div>
+
+  <script>
+    const mazeCanvas = document.getElementById('mazeCanvas');
+    const trailCanvas = document.getElementById('trailCanvas');
+    const mazeCtx = mazeCanvas.getContext('2d');
+    const trailCtx = trailCanvas.getContext('2d');
+
+    const player = { x: 0, y: 0, size: 2, color: 'blue' };
+    let speed = 2;
+    let target = { x: 0, y: 0 };
+    let prevX, prevY;
+
+    const levels = ['labirinto.png', 'labirinto2.png'];
+    let currentLevel = 0;
+    const mazeImg = new Image();
+
+    let startTime = null;
+    let timerInterval;
+
+    function startTimer() {
+      startTime = Date.now();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById('timer').textContent = elapsed;
+      }, 1000);
+    }
+
+    function loadLevel(index) {
+      currentLevel = index;
+      document.getElementById('level').textContent = currentLevel + 1;
+      mazeImg.src = levels[currentLevel];
+    }
+
+    mazeImg.onload = () => {
+      mazeCtx.drawImage(mazeImg, 0, 0, mazeCanvas.width, mazeCanvas.height);
+      trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+      spawnPlayer();
+      prevX = player.x;
+      prevY = player.y;
+      drawPlayer();
+      startTimer();
+      update(); // inicia o loop só depois do carregamento
+    };
+
+    function spawnPlayer() {
+      const radius = player.size;
+      for (let y = mazeCanvas.height - 20; y > mazeCanvas.height - 100; y--) {
+        for (let x = 20; x < mazeCanvas.width - 20; x++) {
+          let free = true;
+          for (let dx = -radius; dx <= radius; dx++) {
+            for (let dy = -radius; dy <= radius; dy++) {
+              const px = x + dx;
+              const py = y + dy;
+              const imgData = mazeCtx.getImageData(px, py, 1, 1).data;
+              if (imgData[0] === 0 && imgData[1] === 0 && imgData[2] === 0) {
+                free = false;
+                break;
+              }
+            }
+            if (!free) break;
+          }
+          if (free) {
+            player.x = x;
+            player.y = y;
+            target.x = x;
+            target.y = y;
+            return;
+          }
+        }
+      }
+      console.error("Não encontrou posição livre para spawn!");
+    }
+
+    function drawPlayer() {
+      mazeCtx.drawImage(mazeImg, 0, 0, mazeCanvas.width, mazeCanvas.height);
+      mazeCtx.beginPath();
+      mazeCtx.fillStyle = player.color;
+      mazeCtx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+      mazeCtx.fill();
+    }
+
+    function drawTrail(x1, y1, x2, y2) {
+      trailCtx.beginPath();
+      trailCtx.strokeStyle = 'rgba(0,0,255,0.5)';
+      trailCtx.lineWidth = 1;
+      trailCtx.moveTo(x1, y1);
+      trailCtx.lineTo(x2, y2);
+      trailCtx.stroke();
+    }
+
+    function fadeTrail() {
+      trailCtx.globalCompositeOperation = 'destination-out';
+      trailCtx.fillStyle = 'rgba(0,0,0,0.02)';
+      trailCtx.fillRect(0, 0, trailCanvas.width, trailCanvas.height);
+      trailCtx.globalCompositeOperation = 'source-over';
+    }
+
+    function canMove(newX, newY) {
+      const radius = player.size;
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dy = -radius; dy <= radius; dy++) {
+          const px = newX + dx;
+          const py = newY + dy;
+          if (px < 0 || py < 0 || px >= mazeCanvas.width || py >= mazeCanvas.height) return false;
+          const imgData = mazeCtx.getImageData(px, py, 1, 1).data;
+          if (imgData[0] === 0 && imgData[1] === 0 && imgData[2] === 0) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    mazeCanvas.addEventListener('mousemove', (e) => {
+      const rect = mazeCanvas.getBoundingClientRect();
+      target.x = e.clientX - rect.left;
+      target.y = e.clientY - rect.top;
+    });
+
+    function update() {
+      fadeTrail();
+
+      let dx = target.x - player.x;
+      let dy = target.y - player.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > 1) {
+        let stepX = (dx / dist) * speed;
+        let stepY = (dy / dist) * speed;
+        let newX = player.x + stepX;
+        let newY = player.y + stepY;
+
+        if (canMove(newX, newY)) {
+          drawTrail(prevX, prevY, newX, newY);
+          player.x = newX;
+          player.y = newY;
+          prevX = newX;
+          prevY = newY;
+        }
+      }
+
+      drawPlayer();
+
+      if (player.y <= 10) {
+        if (currentLevel < levels.length - 1) {
+          loadLevel(currentLevel + 1); // próximo nível
+        } else {
+          clearInterval(timerInterval);
+          alert('Parabéns! Você venceu todos os níveis!');
+        }
+        return; // para não continuar o loop atual
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    // Inicia no primeiro nível
+    loadLevel(0);
+  </script>
+</body>
+</html>

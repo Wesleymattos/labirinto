@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Labirinto com Controle pelo Mouse</title>
+  <style>
+    body {
+      background: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: white;
+      font-family: Arial;
+    }
+    canvas {
+      background: white;
+      border: 2px solid #000;
+      margin-bottom: 10px;
+      cursor: crosshair;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="500" height="700"></canvas>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const player = { x: 0, y: 0, size: 2, color: 'blue' };
+    let speed = 2;
+    let target = { x: 0, y: 0 };
+
+    const mazeImg = new Image();
+    mazeImg.src = 'labirinto2.png'; // sua imagem do labirinto
+
+    mazeImg.onload = () => {
+      ctx.drawImage(mazeImg, 0, 0, canvas.width, canvas.height);
+      spawnPlayer();
+      drawPlayer();
+    };
+
+    function spawnPlayer() {
+      const radius = player.size;
+      for (let y = canvas.height - 20; y > canvas.height - 100; y--) {
+        for (let x = 20; x < canvas.width - 20; x++) {
+          let free = true;
+          for (let dx = -radius; dx <= radius; dx++) {
+            for (let dy = -radius; dy <= radius; dy++) {
+              const px = x + dx;
+              const py = y + dy;
+              const imgData = ctx.getImageData(px, py, 1, 1).data;
+              if (imgData[0] === 0 && imgData[1] === 0 && imgData[2] === 0) {
+                free = false;
+                break;
+              }
+            }
+            if (!free) break;
+          }
+          if (free) {
+            player.x = x;
+            player.y = y;
+            target.x = x;
+            target.y = y;
+            return;
+          }
+        }
+      }
+    }
+
+    function drawPlayer() {
+      ctx.drawImage(mazeImg, 0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      ctx.fillStyle = player.color;
+      ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function canMove(newX, newY) {
+      const radius = player.size;
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dy = -radius; dy <= radius; dy++) {
+          const px = newX + dx;
+          const py = newY + dy;
+          if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) return false;
+          const imgData = ctx.getImageData(px, py, 1, 1).data;
+          if (imgData[0] === 0 && imgData[1] === 0 && imgData[2] === 0) {
+            return false; // parede preta
+          }
+        }
+      }
+      return true;
+    }
+
+    // Captura posição do mouse
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      target.x = e.clientX - rect.left;
+      target.y = e.clientY - rect.top;
+    });
+
+    // Atualiza posição da bolinha gradualmente
+    function update() {
+      let dx = target.x - player.x;
+      let dy = target.y - player.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > 1) {
+        let stepX = (dx / dist) * speed;
+        let stepY = (dy / dist) * speed;
+        let newX = player.x + stepX;
+        let newY = player.y + stepY;
+
+        if (canMove(newX, newY)) {
+          player.x = newX;
+          player.y = newY;
+        }
+      }
+
+      drawPlayer();
+
+      if (player.y <= 10) {
+        alert('Você venceu!');
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    update();
+  </script>
+</body>
+</html>

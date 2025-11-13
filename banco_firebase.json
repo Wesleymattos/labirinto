@@ -1,0 +1,19 @@
+{
+  "players": {
+    "player1": {
+      "x": 250,
+      "y": 680,
+      "color": "blue"
+    },
+    "player2": {
+      "x": 260,
+      "y": 680,
+      "color": "red"
+    }
+  },
+  "game": {
+    "level": 1,
+    "labyrinth": "labirinto.png",
+    "status": "running"
+  }
+}
